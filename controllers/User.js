@@ -1,5 +1,5 @@
 const User = require('../models/User');
-
+const jwt = require('jsonwebtoken')
 const Register = (req, res) => {
     const { name, email, password } = req.body;
     const user = new User({ name, email, password });
@@ -19,7 +19,10 @@ const Login = (req, res) => {
             if (!user || user.password!== password) {
                 return res.status(401).json({ message: 'Invalid email or password' });
             }
-            res.json({ message: 'User logged in successfully' });
+            const token = jwt.sign({ id: user._id }, process.env.JWT, {
+                expiresIn: "9999 years",
+            });
+            res.json({ token , user });
         })
        .catch((error) => {
             res.status(500).json({ message: 'Error logging in user', error });
