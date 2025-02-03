@@ -1,5 +1,5 @@
 const express = require("express");
-const { Register, Login } = require("../controllers/user");
+const { Register, Login } = require("../controllers/User.js");
 const router = express.Router();
 
 // for user login and signup and profile update and delete
