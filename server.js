@@ -3,9 +3,17 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const UserRouter = require('./routes/User');
 const app = express();
-app.use(cors())
+
+const corsOptions = {
+    origin: "http://localhost:5173",
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true
+}
+
+
+app.use(cors(corsOptions));
 app.use(express.json());
-const PORT = 5000;
+const PORT = 4001;
 
 require('dotenv').config();
 
