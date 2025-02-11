@@ -2,14 +2,27 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const { Server } = require('socket.io');
+const http = require('http');
 
 const UserRouter = require('./routes/UserRoutes.js');
 const QuizRouter = require('./routes/QuizRoutes.js');
 const QuestionRouter = require('./routes/QuestionRoutes.js');
 
-dotenv.config(); // Load environment variables
+dotenv.config();
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: "http://localhost:5173",
+        methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+        credentials: true
+    }
+});
+
+app.set("io", io);
+
 const PORT = process.env.PORT || 4001;
 
 // CORS configuration
@@ -22,14 +35,13 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// MongoDB Connection
 const connectDb = async () => {
     try {
         await mongoose.connect(process.env.MONGO);
         console.log("✅ Connected to MongoDB");
     } catch (error) {
         console.error("❌ MongoDB connection error:", error);
-        process.exit(1); // Exit process if MongoDB connection fails
+        process.exit(1);
     }
 };
 
@@ -42,8 +54,58 @@ app.use("/api/user", UserRouter);
 app.use("/api/quiz", QuizRouter);
 app.use("/api/question", QuestionRouter);
 
-// Start the Server
-app.listen(PORT, async () => {
+const rooms = new Map();
+const roomWorkers = new Map(); // Store room workers
+
+app.set("rooms", rooms);
+app.set("roomWorkers", roomWorkers);
+
+io.on("connection", (socket) => {
+    console.log(`🔵 New client connected: ${socket.id}`);
+
+    socket.on("join-room", ({ roomId, username }) => {
+        if (!rooms.has(roomId)) {
+            rooms.set(roomId, { participants: [] });
+        }
+
+        const room = rooms.get(roomId);
+        const user = { id: socket.id, username };
+        room.participants.push(user);
+        socket.join(roomId);
+
+        console.log(`👤 ${username} joined Room ${roomId}`);
+
+        // Notify the worker thread for this room
+        if (roomWorkers.has(roomId)) {
+            roomWorkers.get(roomId).postMessage({
+                type: "ADD_PARTICIPANT",
+                data: user,
+            });
+        }
+
+        io.to(roomId).emit("user-joined", { participants: room.participants });
+    });
+
+    socket.on("disconnect", () => {
+        console.log(`🔴 Client disconnected: ${socket.id}`);
+
+        rooms.forEach((room, roomId) => {
+            room.participants = room.participants.filter(p => p.id !== socket.id);
+            io.to(roomId).emit("user-joined", { participants: room.participants });
+
+            // Notify the worker thread
+            if (roomWorkers.has(roomId)) {
+                roomWorkers.get(roomId).postMessage({
+                    type: "REMOVE_PARTICIPANT",
+                    data: { id: socket.id },
+                });
+            }
+        });
+    });
+});
+
+server.listen(PORT, async () => {
     await connectDb();
     console.log(`🚀 Server is running on port ${PORT}`);
 });
+
