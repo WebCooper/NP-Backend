@@ -16,7 +16,8 @@ const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
         origin: "http://localhost:5173",
-        methods: ["GET", "POST"]
+        methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+        credentials: true
     }
 });
 
@@ -53,38 +54,52 @@ app.use("/api/user", UserRouter);
 app.use("/api/quiz", QuizRouter);
 app.use("/api/question", QuestionRouter);
 
-const rooms = new Map(); // Use a Map to store room data
-app.set("rooms", rooms); // Make rooms accessible via req.app.get("rooms")
+const rooms = new Map();
+const roomWorkers = new Map(); // Store room workers
+
+app.set("rooms", rooms);
+app.set("roomWorkers", roomWorkers);
 
 io.on("connection", (socket) => {
     console.log(`🔵 New client connected: ${socket.id}`);
 
     socket.on("join-room", ({ roomId, username }) => {
         if (!rooms.has(roomId)) {
-            // If the room doesn't exist, create it
             rooms.set(roomId, { participants: [] });
         }
 
         const room = rooms.get(roomId);
-
-        // Add the user to the room
-        socket.join(roomId);
         const user = { id: socket.id, username };
         room.participants.push(user);
+        socket.join(roomId);
 
         console.log(`👤 ${username} joined Room ${roomId}`);
 
-        // Send updated participants list to ALL users in the room
+        // Notify the worker thread for this room
+        if (roomWorkers.has(roomId)) {
+            roomWorkers.get(roomId).postMessage({
+                type: "ADD_PARTICIPANT",
+                data: user,
+            });
+        }
+
         io.to(roomId).emit("user-joined", { participants: room.participants });
     });
 
     socket.on("disconnect", () => {
         console.log(`🔴 Client disconnected: ${socket.id}`);
 
-        // Remove the user from all rooms
         rooms.forEach((room, roomId) => {
             room.participants = room.participants.filter(p => p.id !== socket.id);
-            io.to(roomId).emit("user-joined", { participants: room.participants }); // Notify others
+            io.to(roomId).emit("user-joined", { participants: room.participants });
+
+            // Notify the worker thread
+            if (roomWorkers.has(roomId)) {
+                roomWorkers.get(roomId).postMessage({
+                    type: "REMOVE_PARTICIPANT",
+                    data: { id: socket.id },
+                });
+            }
         });
     });
 });

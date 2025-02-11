@@ -1,4 +1,12 @@
+
+const { Worker } = require('worker_threads');
+
 const Quiz = require("../models/Quiz");
+const {join} = require("node:path");
+
+
+
+
 
 
 const Create = async (req, res) => {
@@ -39,24 +47,29 @@ const setLive = async (req, res, io, rooms) => {
 
         if (!quiz) return res.status(404).json({ message: "Quiz not found" });
 
-        // Set the quiz as live
         quiz.isLive = true;
         await quiz.save();
 
-        // Generate a room number
+        // Generate a unique room number
         const roomId = Math.floor(1000 + Math.random() * 9000).toString();
 
-        // Save the room in the custom rooms object
         if (!rooms.has(roomId)) {
             rooms.set(roomId, { quizId, participants: [] });
         }
 
         console.log(`📢 Quiz ${quizId} is now LIVE in Room ${roomId}`);
 
-        // Emit an event for room creation to notify the frontend or other clients
+        // Create a worker thread for this room
+        const worker = new Worker(join(__dirname, "../models/roomWorker.js"), {
+            workerData: { roomId },
+        });
+
+        // Store the worker in `roomWorkers`
+        req.app.get("roomWorkers").set(roomId, worker);
+
+        // Emit room creation event
         io.emit("room-created", { roomId, quizId });
 
-        // Send the response back to the client
         res.json({ roomId });
     } catch (error) {
         console.log(error);
