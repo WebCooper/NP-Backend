@@ -65,7 +65,7 @@ io.on("connection", (socket) => {
 
     socket.on("join-room", ({ roomId, username }) => {
         if (!rooms.has(roomId)) {
-            rooms.set(roomId, { participants: [] });
+            rooms.set(roomId, { participants: [], quizId: null });
         }
 
         const room = rooms.get(roomId);
@@ -75,16 +75,21 @@ io.on("connection", (socket) => {
 
         console.log(`👤 ${username} joined Room ${roomId}`);
 
-        // Notify the worker thread for this room
+        let threadId = null;
         if (roomWorkers.has(roomId)) {
-            roomWorkers.get(roomId).postMessage({
-                type: "ADD_PARTICIPANT",
-                data: user,
-            });
+            const worker = roomWorkers.get(roomId);
+            threadId = worker.threadId;
         }
+
+        io.to(roomId).emit("room-details", {
+            quizId: room.quizId,
+            threadId: threadId,
+            hostId: room.hostId,
+        });
 
         io.to(roomId).emit("user-joined", { participants: room.participants });
     });
+
 
     socket.on("disconnect", () => {
         console.log(`🔴 Client disconnected: ${socket.id}`);
