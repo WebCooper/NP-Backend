@@ -87,7 +87,17 @@ const setLive = async (req, res, io, rooms) => {
         }
 
         // Assign the room
-        rooms.set(roomId, { quizId, participants: [], hostId: quiz.userId });
+        rooms.set(roomId, {
+            quizId,
+            participants: [],
+            hostId: quiz.userId,
+            currentQuestionIndex: -1,
+            questions: [],
+            roundScores: [], // Stores scores for each round
+            leaderboard: new Map(), // Track cumulative scores
+            questionStartTime: null,
+            questionTimer: null
+        });
 
         io.emit("room-created", { roomId, quizId });
 
