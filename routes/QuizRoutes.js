@@ -19,6 +19,11 @@ router.patch("/set-live/:quizId", (req, res) => {
 });
 
 // Set the quiz as not live
-router.patch("/set-not-live/:quizId", setNotLive);
+
+// Set the quiz as not live (stop room)
+router.patch("/set-not-live/:quizId", (req, res) => {
+    setNotLive(req, res, req.app.get("io"), req.app.get("rooms"));
+});
+
 
 module.exports = router;

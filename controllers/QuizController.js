@@ -4,11 +4,6 @@ const { Worker } = require('worker_threads');
 const Quiz = require("../models/Quiz");
 const {join} = require("node:path");
 
-
-
-
-
-
 const Create = async (req, res) => {
     try {
         const { title, userId } = req.body;
@@ -44,30 +39,62 @@ const setLive = async (req, res, io, rooms) => {
     try {
         const { quizId } = req.params;
         const quiz = await Quiz.findById(quizId);
-
         if (!quiz) return res.status(404).json({ message: "Quiz not found" });
 
         quiz.isLive = true;
         await quiz.save();
 
-        // Generate a unique room number
-        const roomId = Math.floor(1000 + Math.random() * 9000).toString();
 
-        if (!rooms.has(roomId)) {
-            rooms.set(roomId, { quizId, participants: [] });
+        let roomId = null;
+        let worker = null;
+        const roomWorkers = req.app.get("roomWorkers");
+
+        // Check if there's an available worker thread
+        for (const [existingRoomId, existingWorker] of roomWorkers.entries()) {
+            if (!rooms.has(existingRoomId)) { // Unused worker found
+                roomId = existingRoomId;
+                worker = existingWorker;
+                break;
+            }
         }
 
-        console.log(`📢 Quiz ${quizId} is now LIVE in Room ${roomId}`);
+        if (!worker) {
+            // If no existing worker, create a new worker thread
+            roomId = Math.floor(1000 + Math.random() * 9000).toString();
+            worker = new Worker(join(__dirname, "../models/roomWorker.js"), {
+                workerData: { roomId },
+            });
 
-        // Create a worker thread for this room
-        const worker = new Worker(join(__dirname, "../models/roomWorker.js"), {
-            workerData: { roomId },
+            worker.on("message", (msg) => {
+                if (msg.type === "THREAD_STARTED") {
+                    io.to(roomId).emit("room-details", {
+                        quizId,
+                        threadId: msg.threadId,
+                        hostId: quiz.userId,
+                    });
+                }
+            });
+
+            roomWorkers.set(roomId, worker);
+        } else {
+            // If reusing an existing worker, reset it
+            worker.postMessage({ type: "RESET" });
+            console.log(`♻️ Reusing Worker Thread ${worker.threadId} for Room ${roomId}`);
+        }
+
+        // Assign the room
+        rooms.set(roomId, {
+            quizId,
+            participants: [],
+            hostId: quiz.userId,
+            currentQuestionIndex: -1,
+            questions: [],
+            roundScores: [], // Stores scores for each round
+            leaderboard: new Map(), // Track cumulative scores
+            questionStartTime: null,
+            questionTimer: null
         });
 
-        // Store the worker in `roomWorkers`
-        req.app.get("roomWorkers").set(roomId, worker);
-
-        // Emit room creation event
         io.emit("room-created", { roomId, quizId });
 
         res.json({ roomId });
@@ -77,21 +104,46 @@ const setLive = async (req, res, io, rooms) => {
     }
 };
 
-const setNotLive = async (req, res) => {
+
+
+
+const setNotLive = async (req, res, io, rooms) => {
     try {
         const { quizId } = req.params;
         const quiz = await Quiz.findById(quizId);
-
         if (!quiz) return res.status(404).json({ message: "Quiz not found" });
 
+        let roomIdToDelete = null;
+        for (const [roomId, roomData] of rooms.entries()) {
+            if (roomData.quizId === quizId) {
+                roomIdToDelete = roomId;
+                break;
+            }
+        }
+
+        if (!roomIdToDelete) {
+            return res.status(404).json({ message: "No active room found" });
+        }
+
+        const worker = req.app.get("roomWorkers").get(roomIdToDelete);
+        if (worker) {
+            worker.postMessage({ type: "RESET" });
+            console.log(`♻️ Worker thread ${worker.threadId} has been reset.`);
+        } else {
+            console.log(`⚠️ No worker thread found for room ${roomIdToDelete}.`);
+        }
+
+        rooms.delete(roomIdToDelete);
         quiz.isLive = false;
         await quiz.save();
 
-        res.json({ message: "Quiz is now not live" });
+        io.emit("quiz-ended", { roomId: roomIdToDelete });
+
+        res.json({ message: "Quiz stopped", roomId: roomIdToDelete });
     } catch (error) {
+        console.error("❌ Error stopping quiz:", error);
         res.status(500).json({ message: "Server error", error });
     }
 };
-
 
 module.exports = { Create ,getUsersQuizes, deleteQuiz, setLive, setNotLive};
