@@ -142,6 +142,19 @@ io.on("connection", (socket) => {
                 isCorrect
             });
 
+            // Track answered participants
+            if (!room.answeredParticipants) {
+                room.answeredParticipants = new Set();
+            }
+            room.answeredParticipants.add(socket.id);
+
+            // Emit quiz status update to the host
+            io.to(roomId).emit("quiz-status-update", {
+                totalParticipants: room.participants.length,
+                answeredCount: room.answeredParticipants.size,
+                timeRemaining: Math.max(0, 30 - timeTaken)
+            });
+
             socket.emit("answer-result", { isCorrect, score, timeTaken });
         }
     });
@@ -196,7 +209,6 @@ function handleQuestionTimeout(roomId, io) {
             room.currentQuestionIndex = 0;
         }
 
-
         if (!room.roundScores[room.currentQuestionIndex]) {
             room.roundScores[room.currentQuestionIndex] = [];
         }
@@ -209,9 +221,11 @@ function handleQuestionTimeout(roomId, io) {
             roundLeaderboard: roundResults,
             correctAnswer: room.questions[room.currentQuestionIndex]?.options[room.questions[room.currentQuestionIndex]?.correctOption] || "N/A"
         });
+
+        // Reset answered participants for the next question
+        room.answeredParticipants = new Set();
     }
 }
-
 
 function moveToNextQuestion(roomId, io) {
     const room = rooms.get(roomId);
