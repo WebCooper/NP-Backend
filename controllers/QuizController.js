@@ -4,11 +4,6 @@ const { Worker } = require('worker_threads');
 const Quiz = require("../models/Quiz");
 const {join} = require("node:path");
 
-
-
-
-
-
 const Create = async (req, res) => {
     try {
         const { title, userId } = req.body;
@@ -48,6 +43,7 @@ const setLive = async (req, res, io, rooms) => {
 
         quiz.isLive = true;
         await quiz.save();
+
 
         let roomId = null;
         let worker = null;
@@ -103,9 +99,11 @@ const setLive = async (req, res, io, rooms) => {
 
         res.json({ roomId });
     } catch (error) {
+        console.log(error);
         res.status(500).json({ message: "Server error", error });
     }
 };
+
 
 
 
@@ -147,9 +145,5 @@ const setNotLive = async (req, res, io, rooms) => {
         res.status(500).json({ message: "Server error", error });
     }
 };
-
-
-
-
 
 module.exports = { Create ,getUsersQuizes, deleteQuiz, setLive, setNotLive};
