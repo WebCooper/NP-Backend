@@ -27,20 +27,15 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
-#      # Stop pm2
-#      - name: Stop pm2
-#        run: |
-#          pm2 stop 1
+      # Stop pm2
+      - name: Stop pm2
+        run: |
+          pm2 stop expressjs
 
       # Install dependencies in the backend directory
       - name: Install Dependencies
         run: |
           npm ci
-
-      # Delete existing .env file from backend production directory
-      - name: Remove old .env file from backend
-        run: |
-          rm -f /home/janitha/production/backend/.env
 
       # Set up environmental variables
       - name: Add Environmental Variables
@@ -49,6 +44,6 @@ jobs:
           echo "MONGO=${{ secrets.MONGO }}" >> .env
           echo "JWT=${{ secrets.JWT }}" >> .env
 #
-#      - name: Restart pm2
-#        run: |
-#          pm2 restart 1
+      - name: Restart pm2
+        run: |
+          pm2 restart expressjs
