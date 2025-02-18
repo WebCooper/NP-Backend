@@ -4,11 +4,6 @@ const { Worker } = require('worker_threads');
 const Quiz = require("../models/Quiz");
 const {join} = require("node:path");
 
-
-
-
-
-
 const Create = async (req, res) => {
     try {
         const { title, userId } = req.body;
