@@ -1,3 +1,4 @@
+
 const { parentPort, workerData, threadId } = require("worker_threads");
 
 const { roomId } = workerData;
@@ -5,6 +6,7 @@ const { roomId } = workerData;
 console.log(`🧵 Worker Thread ${threadId} started for Room ${roomId}`);
 
 parentPort.postMessage({ type: "THREAD_STARTED", threadId, roomId });
+
 
 let participants = [];
 
@@ -20,6 +22,7 @@ parentPort.on("message", (message) => {
             console.log(`♻️ Resetting Worker Thread ${threadId} for a new quiz`);
             participants = [];
             break;
+
         case "CLOSE":
             console.log(`🛑 Closing Room ${roomId}`);
             parentPort.close();

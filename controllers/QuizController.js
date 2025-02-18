@@ -44,6 +44,7 @@ const setLive = async (req, res, io, rooms) => {
         quiz.isLive = true;
         await quiz.save();
 
+
         let roomId = null;
         let worker = null;
         const roomWorkers = req.app.get("roomWorkers");
@@ -98,9 +99,11 @@ const setLive = async (req, res, io, rooms) => {
 
         res.json({ roomId });
     } catch (error) {
+        console.log(error);
         res.status(500).json({ message: "Server error", error });
     }
 };
+
 
 
 
@@ -142,9 +145,5 @@ const setNotLive = async (req, res, io, rooms) => {
         res.status(500).json({ message: "Server error", error });
     }
 };
-
-
-
-
 
 module.exports = { Create ,getUsersQuizes, deleteQuiz, setLive, setNotLive};

@@ -4,7 +4,9 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const { Server } = require('socket.io');
 const http = require('http');
+
 const Question = require('./models/Question.js');
+
 
 const UserRouter = require('./routes/UserRoutes.js');
 const QuizRouter = require('./routes/QuizRoutes.js');
@@ -65,10 +67,12 @@ io.on("connection", (socket) => {
     console.log(`🔵 New client connected: ${socket.id}`);
 
     socket.on("join-room", ({ roomId, username }) => {
+
         // First check if room exists
         if (!rooms.has(roomId)) {
             socket.emit("room-error", { message: "Room does not exist" });
             return;
+
         }
 
         const room = rooms.get(roomId);
@@ -177,6 +181,7 @@ io.on("connection", (socket) => {
     });
 
 
+
     socket.on("disconnect", () => {
         console.log(`🔴 Client disconnected: ${socket.id}`);
 
@@ -194,6 +199,7 @@ io.on("connection", (socket) => {
         });
     });
 });
+
 
 function handleQuestionTimeout(roomId, io) {
     const room = rooms.get(roomId);
@@ -250,7 +256,9 @@ function moveToNextQuestion(roomId, io) {
     }
 }
 
+
 server.listen(PORT, async () => {
     await connectDb();
     console.log(`🚀 Server is running on port ${PORT}`);
 });
+
