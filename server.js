@@ -18,7 +18,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:5173",
+        origin: ["http://localhost:5173", "https://quizcrash.senani.online"],
         methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
         credentials: true
     }
@@ -30,7 +30,7 @@ const PORT = process.env.PORT || 4001;
 
 // CORS configuration
 const corsOptions = {
-  origin: ["http://localhost:5173", "http://localhost:5174"],
+  origin: ["http://localhost:5173", "http://localhost:5174", "https://quizcrash.senani.online"],
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   credentials: true,
 };
@@ -109,7 +109,7 @@ io.on("connection", (socket) => {
 
             room.questionTimer = setTimeout(() => {
                 handleQuestionTimeout(roomId, io);
-            }, 30000);
+            }, 15000);
 
             io.to(roomId).emit("question", {
                 question: {
@@ -117,7 +117,7 @@ io.on("connection", (socket) => {
                     options: questions[0].options,
                     questionNumber: 1,
                     totalQuestions: questions.length,
-                    timeLimit: 30
+                    timeLimit: 15
                 }
             });
         }
@@ -156,7 +156,7 @@ io.on("connection", (socket) => {
             io.to(roomId).emit("quiz-status-update", {
                 totalParticipants: room.participants.length,
                 answeredCount: room.answeredParticipants.size,
-                timeRemaining: Math.max(0, 30 - timeTaken)
+                timeRemaining: Math.max(0, 15 - timeTaken)
             });
 
             socket.emit("answer-result", { isCorrect, score, timeTaken });
@@ -236,13 +236,19 @@ function handleQuestionTimeout(roomId, io) {
 function moveToNextQuestion(roomId, io) {
     const room = rooms.get(roomId);
     if (room) {
+        // Reset answered participants for the next question
+        room.answeredParticipants = new Set();
+
+        // Move to the next question
         room.currentQuestionIndex++;
         room.questionStartTime = Date.now();
 
+        // Set a new timer for the next question
         room.questionTimer = setTimeout(() => {
             handleQuestionTimeout(roomId, io);
-        }, 30000);
+        }, 15000);
 
+        // Emit the next question to all participants
         const currentQuestion = room.questions[room.currentQuestionIndex];
         io.to(roomId).emit("question", {
             question: {
@@ -250,8 +256,15 @@ function moveToNextQuestion(roomId, io) {
                 options: currentQuestion.options,
                 questionNumber: room.currentQuestionIndex + 1,
                 totalQuestions: room.questions.length,
-                timeLimit: 30
+                timeLimit: 15
             }
+        });
+
+        // Emit an initial quiz status update with answeredCount reset to 0
+        io.to(roomId).emit("quiz-status-update", {
+            totalParticipants: room.participants.length,
+            answeredCount: 0, // Reset answered count
+            timeRemaining: 15 // Reset time remaining
         });
     }
 }
