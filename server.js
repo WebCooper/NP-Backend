@@ -101,6 +101,10 @@ io.on("connection", (socket) => {
         const room = rooms.get(roomId);
         if (room) {
             const questions = await Question.find({ quizId: room.quizId });
+            if (!questions || questions.length === 0) {
+                socket.emit("quiz-error", { message: "Cannot start quiz without questions!" });
+                return;
+            }
             room.questions = questions;
             room.currentQuestionIndex = 0;
             room.questionStartTime = Date.now();
