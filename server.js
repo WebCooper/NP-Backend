@@ -113,7 +113,7 @@ io.on("connection", (socket) => {
 
             room.questionTimer = setTimeout(() => {
                 handleQuestionTimeout(roomId, io);
-            }, 20000);
+            }, 30000);
 
             io.to(roomId).emit("question", {
                 question: {
@@ -121,7 +121,7 @@ io.on("connection", (socket) => {
                     options: questions[0].options,
                     questionNumber: 1,
                     totalQuestions: questions.length,
-                    timeLimit: 20
+                    timeLimit: 30
                 }
             });
         }
@@ -160,7 +160,7 @@ io.on("connection", (socket) => {
             io.to(roomId).emit("quiz-status-update", {
                 totalParticipants: room.participants.length,
                 answeredCount: room.answeredParticipants.size,
-                timeRemaining: Math.max(0, 20 - timeTaken)
+                timeRemaining: Math.max(0, 30 - timeTaken)
             });
 
             socket.emit("answer-result", { isCorrect, score, timeTaken });
@@ -260,7 +260,7 @@ function moveToNextQuestion(roomId, io) {
                 options: currentQuestion.options,
                 questionNumber: room.currentQuestionIndex + 1,
                 totalQuestions: room.questions.length,
-                timeLimit: 20
+                timeLimit: 30
             }
         });
 
@@ -268,7 +268,7 @@ function moveToNextQuestion(roomId, io) {
         io.to(roomId).emit("quiz-status-update", {
             totalParticipants: room.participants.length,
             answeredCount: 0, // Reset answered count
-            timeRemaining: 20 // Reset time remaining
+            timeRemaining: 30 // Reset time remaining
         });
     }
 }
